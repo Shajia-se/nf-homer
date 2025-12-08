@@ -1,6 +1,6 @@
 process homer_motif {
     tag "${peak_file}"
-    publishDir "${params.outdir}/motif", mode: 'copy'
+    publishDir "${params.homer_output}/motif", mode: 'copy'
 
     input:
     path peak_file

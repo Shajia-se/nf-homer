@@ -1,6 +1,6 @@
 process homer_annotate {
     tag "${peak_file}"
-    publishDir "${params.outdir}/annotate", mode: 'copy'
+    publishDir "${params.homer_output}/annotate", mode: 'copy'
 
     input:
     path peak_file
