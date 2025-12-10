@@ -10,6 +10,10 @@ process homer_motif {
 
     script:
     """
-    findMotifsGenome.pl ${peak_file} ${params.genome} ${peak_file.simpleName}_motifs -size given
+    findMotifsGenome.pl \
+        ${peak_file} \
+        ${params.genome} \
+        ${peak_file.simpleName}_motifs \
+        -size given
     """
 }
