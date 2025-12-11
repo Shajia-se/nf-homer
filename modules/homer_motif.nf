@@ -14,6 +14,6 @@ process homer_motif {
         ${peak_file} \
         ${params.genome} \
         ${peak_file.simpleName}_motifs \
-        -len 6, 8, 10, 12 
+        -len 6,8,10,12
     """
 }
