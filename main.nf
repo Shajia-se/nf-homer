@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-params.mode   = params.mode ?: "annotate"      // annotate / motif / both
+params.mode   = params.mode ?: "both"      // annotate / motif / both
 params.homer_output = params.homer_output ?: "homer_output"
 
 include { homer_annotate } from './modules/homer_annotate.nf'
