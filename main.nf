@@ -15,7 +15,7 @@ workflow {
         .ifEmpty { exit 1, "ERROR: No peak files found for pattern: ${params.peaks}" }
         .map { pf ->
             def basename      = pf.simpleName
-            def anno_out_file = file("${params.homer_output}/annotate/${basename}_annotate.txt")
+            def anno_out_file = file("${params.homer_output}/annotate/${basename}.annotated.txt")
             def motif_out_dir = file("${params.homer_output}/motif/${basename}_motifs")
             tuple(pf, anno_out_file, motif_out_dir)
         }
