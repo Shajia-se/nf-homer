@@ -1,3 +1,0 @@
-group_name,target_bed,background_bed
-WT_unique_vs_TG_bg,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-diffbind/diffbind_output/condition_unique_up.WT.vs.TG.bed,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-diffbind/diffbind_output/condition_unique_down.WT.vs.TG.bed
-TG_unique_vs_WT_bg,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-diffbind/diffbind_output/condition_unique_down.WT.vs.TG.bed,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-diffbind/diffbind_output/condition_unique_up.WT.vs.TG.bed
