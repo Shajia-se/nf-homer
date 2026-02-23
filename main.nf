@@ -67,17 +67,15 @@ workflow {
             exit 1, "ERROR: auto motif_compare currently expects exactly 2 enabled non-control conditions in samples_master."
         }
 
-        def c1 = conds[0]
-        def c2 = conds[1]
-        def contrast = "${c1}.vs.${c2}"
-        def up = file("${params.diffbind_output}/condition_unique_up.${contrast}.bed")
-        def down = file("${params.diffbind_output}/condition_unique_down.${contrast}.bed")
+        // Fixed contrast naming for current project
+        def up = file("${params.diffbind_output}/condition_unique_up.TG.vs.WT.bed")
+        def down = file("${params.diffbind_output}/condition_unique_down.TG.vs.WT.bed")
         assert up.exists() : "Auto motif_compare target not found: ${up}"
         assert down.exists() : "Auto motif_compare background not found: ${down}"
 
         return Channel.fromList([
-            tuple("${c1}_unique_vs_${c2}_bg", up, down),
-            tuple("${c2}_unique_vs_${c1}_bg", down, up)
+            tuple("TG_unique_vs_WT_bg", up, down),
+            tuple("WT_unique_vs_TG_bg", down, up)
         ])
     }
 

@@ -18,7 +18,7 @@ Standard modes (`annotate` / `motif` / `both` / `motif_and_compare` motif part):
 
 `motif_compare` input:
 1. `--motif_compare_sheet` CSV (explicit), or
-2. auto from `--samples_master` + `--diffbind_output`
+2. auto from `--samples_master` + `--diffbind_output` (fixed to `TG.vs.WT` naming in this project)
 
 ### Explicit `motif_compare_sheet` format
 ```text
