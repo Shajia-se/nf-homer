@@ -28,12 +28,12 @@ group_name,target_bed,background_bed
 ### Auto compare behavior
 - expects exactly 2 enabled non-control conditions from `samples_master`
 - reads:
-  - `condition_unique_up.<COND1>.vs.<COND2>.bed`
-  - `condition_unique_down.<COND1>.vs.<COND2>.bed`
+  - `condition_unique_up.TG.vs.WT.bed`
+  - `condition_unique_down.TG.vs.WT.bed`
   from `diffbind_output`
 - builds two comparisons automatically:
-  - `COND1_unique_vs_COND2_bg`
-  - `COND2_unique_vs_COND1_bg`
+  - `TG_unique_vs_WT_bg`
+  - `WT_unique_vs_TG_bg`
 
 ## Output
 
@@ -54,9 +54,7 @@ group_name,target_bed,background_bed
 
 Default recommended (motif + compare):
 ```bash
-nextflow run main.nf -profile hpc \
-  --samples_master /path/to/samples_master.csv \
-  --diffbind_output /path/to/nf-diffbind/diffbind_output
+nextflow run main.nf -profile hpc
 ```
 
 Explicit target/background compare:
