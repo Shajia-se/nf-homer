@@ -31,6 +31,11 @@ group_name,target_bed,background_bed
   - `condition_unique_up.TG.vs.WT.bed`
   - `condition_unique_down.TG.vs.WT.bed`
   from `diffbind_output`
+
+Default motif enrichment peak sources:
+- `idr`: `*_idr.sorted.chr.bed`
+- `consensus`: `*_consensus.bed`
+- `diffbind`: `condition_unique_*.bed`
 - builds two comparisons automatically:
   - `TG_unique_vs_WT_bg`
   - `WT_unique_vs_TG_bg`
