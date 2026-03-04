@@ -9,6 +9,51 @@ include { homer_motif; homer_motif_compare } from './modules/homer_motif.nf'
 
 
 workflow {
+    def build_motif_peaks = {
+        if (params.peaks) {
+            return Channel
+                .fromPath(params.peaks, checkIfExists: true)
+                .ifEmpty { exit 1, "ERROR: No peak files found for pattern: ${params.peaks}" }
+        }
+
+        def peakSources = (params.homer_peak_sources ?: 'idr,consensus,diffbind')
+            .toString()
+            .split(',')
+            *.trim()
+            .findAll { it }
+            .unique()
+
+        def peakFiles = []
+
+        if (peakSources.contains('idr')) {
+            def idrDir = file(params.idr_output)
+            assert idrDir.exists() : "idr_output not found: ${params.idr_output}"
+            peakFiles.addAll(idrDir.listFiles()?.findAll { f ->
+                f.isFile() && f.name ==~ globToRegex(params.idr_peak_pattern ?: "*_idr.sorted.chr.bed")
+            } ?: [])
+        }
+
+        if (peakSources.contains('consensus')) {
+            def consensusDir = file(params.peak_consensus_output)
+            assert consensusDir.exists() : "peak_consensus_output not found: ${params.peak_consensus_output}"
+            peakFiles.addAll(consensusDir.listFiles()?.findAll { f ->
+                f.isFile() && f.name ==~ globToRegex(params.consensus_peak_pattern ?: "*_consensus.bed")
+            } ?: [])
+        }
+
+        if (peakSources.contains('diffbind')) {
+            def diffbindDir = file(params.diffbind_output)
+            assert diffbindDir.exists() : "diffbind_output not found: ${params.diffbind_output}"
+            peakFiles.addAll(diffbindDir.listFiles()?.findAll { f ->
+                f.isFile() && f.name ==~ globToRegex(params.diffbind_peak_pattern ?: "*.bed")
+            } ?: [])
+        }
+
+        return Channel
+            .fromList(peakFiles.collect { file(it.toString()) })
+            .ifEmpty { exit 1, "ERROR: No peak files found for HOMER. Check configured source directories and patterns." }
+    }
+
     def build_compare_input = {
         if (params.motif_compare_sheet) {
             return Channel
@@ -83,24 +128,8 @@ workflow {
         def compare_input = build_compare_input()
         homer_motif_compare(compare_input)
     } else {
-        def selectedPairs = null as Set
-        if (params.idr_pairs_csv && file(params.idr_pairs_csv).exists()) {
-            selectedPairs = [] as Set
-            file(params.idr_pairs_csv).eachLine { line, n ->
-                if (n == 1 || !line?.trim()) return
-                def cols = line.split(',', -1)*.trim()
-                if (cols.size() > 0 && cols[0]) selectedPairs << cols[0]
-            }
-        }
-
-        Channel
-            .fromPath(params.peaks, checkIfExists: true)
-            .ifEmpty { exit 1, "ERROR: No peak files found for pattern: ${params.peaks}" }
-            .filter { pf ->
-                if (selectedPairs == null) return true
-                selectedPairs.contains(pf.simpleName.toString())
-            }
-            .ifEmpty { exit 1, "ERROR: No peak files matched selected IDR pair names. Check --idr_pairs_csv and --peaks." }
+        build_motif_peaks()
+            .ifEmpty { exit 1, "ERROR: No peak files found for HOMER motif enrichment." }
             .map { pf ->
                 def basename      = pf.simpleName
                 def anno_out_file = file("${params.homer_output}/annotate/${basename}.annotated.txt")
@@ -139,4 +168,11 @@ workflow {
             exit 1, "ERROR: Unsupported --mode '${params.mode}'. Use: annotate / motif / both / motif_compare / motif_and_compare"
         }
     }
+}
+
+def globToRegex(pattern) {
+    '^' + pattern
+        .replace('.', '\\.')
+        .replace('*', '.*')
+        .replace('?', '.') + '$'
 }
