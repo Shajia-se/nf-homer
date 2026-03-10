@@ -16,7 +16,7 @@ workflow {
                 .ifEmpty { exit 1, "ERROR: No peak files found for pattern: ${params.peaks}" }
         }
 
-        def peakSources = (params.homer_peak_sources ?: 'idr,consensus,diffbind')
+        def peakSources = (params.homer_peak_sources ?: 'idr,consensus')
             .toString()
             .split(',')
             *.trim()
@@ -70,13 +70,11 @@ workflow {
         }
 
         if (!params.samples_master) {
-            exit 1, "ERROR: motif_compare requires --motif_compare_sheet or --samples_master + --diffbind_output auto mode."
+            exit 1, "ERROR: motif_compare requires --motif_compare_sheet or --samples_master auto mode."
         }
 
         def master = file(params.samples_master)
         assert master.exists() : "samples_master not found: ${params.samples_master}"
-        def diffdir = file(params.diffbind_output)
-        assert diffdir.exists() : "diffbind_output not found: ${params.diffbind_output}"
 
         def header = null
         def records = []
@@ -112,16 +110,42 @@ workflow {
             exit 1, "ERROR: auto motif_compare currently expects exactly 2 enabled non-control conditions in samples_master."
         }
 
-        // Fixed contrast naming for current project
-        def up = file("${params.diffbind_output}/condition_unique_up.TG.vs.WT.bed")
-        def down = file("${params.diffbind_output}/condition_unique_down.TG.vs.WT.bed")
-        assert up.exists() : "Auto motif_compare target not found: ${up}"
-        assert down.exists() : "Auto motif_compare background not found: ${down}"
+        def c1 = conds[0]
+        def c2 = conds[1]
+        def wt = conds.find { it.equalsIgnoreCase('WT') } ?: c1
+        def tg = conds.find { it.equalsIgnoreCase('TG') } ?: (wt == c1 ? c2 : c1)
+        def compareSources = (params.motif_compare_sources ?: 'idr,consensus')
+            .toString()
+            .split(',')
+            *.trim()
+            .findAll { it }
+            .unique()
 
-        return Channel.fromList([
-            tuple("TG_unique_vs_WT_bg", up, down),
-            tuple("WT_unique_vs_TG_bg", down, up)
-        ])
+        def pairs = []
+
+        if (compareSources.contains('idr')) {
+            def idrDir = file(params.idr_output)
+            assert idrDir.exists() : "idr_output not found: ${params.idr_output}"
+            def target = file("${idrDir}/${tg}_idr.sorted.chr.bed")
+            def bg = file("${idrDir}/${wt}_idr.sorted.chr.bed")
+            assert target.exists() : "Auto motif_compare target not found (idr): ${target}"
+            assert bg.exists() : "Auto motif_compare background not found (idr): ${bg}"
+            pairs << tuple("idr_${tg}_vs_${wt}_bg", target, bg)
+        }
+
+        if (compareSources.contains('consensus')) {
+            def consensusDir = file(params.peak_consensus_output)
+            assert consensusDir.exists() : "peak_consensus_output not found: ${params.peak_consensus_output}"
+            def target = file("${consensusDir}/${tg}_consensus.bed")
+            def bg = file("${consensusDir}/${wt}_consensus.bed")
+            assert target.exists() : "Auto motif_compare target not found (consensus): ${target}"
+            assert bg.exists() : "Auto motif_compare background not found (consensus): ${bg}"
+            pairs << tuple("consensus_${tg}_vs_${wt}_bg", target, bg)
+        }
+
+        Channel
+            .fromList(pairs)
+            .ifEmpty { exit 1, "ERROR: No motif_compare input pairs built. Check motif_compare_sources and input outputs." }
     }
 
     if( params.mode == "motif_compare" ) {
