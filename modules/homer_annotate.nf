@@ -1,15 +1,15 @@
 process homer_annotate {
-    tag "${peak_file}"
+    tag "${label}"
     publishDir "${params.homer_output}/annotate", mode: 'copy'
 
     input:
-    path peak_file
+    tuple val(label), path(peak_file)
 
     output:
-    path "${peak_file.simpleName}.annotated.txt"
+    path "${label}.annotated.txt"
 
     script:
     """
-    annotatePeaks.pl ${peak_file} ${params.genome} > ${peak_file.simpleName}.annotated.txt
+    annotatePeaks.pl ${peak_file} ${params.genome} > ${label}.annotated.txt
     """
 }

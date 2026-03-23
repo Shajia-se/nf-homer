@@ -2,10 +2,10 @@
 
 Nextflow DSL2 module for HOMER-based peak annotation, motif enrichment, and motif comparison.
 
-This module now supports three peak-set sources by default:
+This module now supports these peak-set sources by default:
 - `idr`
-- `consensus`
-- `diffbind`
+- `consensus_q0.01`
+- `consensus_q0.05`
 
 It can run two distinct analyses:
 - `motif enrichment`: run HOMER independently on each peak BED
@@ -55,11 +55,13 @@ Pattern:
 - `*_consensus.bed`
 
 Typical files:
-- `WT_consensus.bed`
-- `TG_consensus.bed`
+- `strict_q0.01/WT_consensus.bed`
+- `strict_q0.01/TG_consensus.bed`
+- `consensus_q0.05/WT_consensus.bed`
+- `consensus_q0.05/TG_consensus.bed`
 
 Use case:
-- overlap-based consensus peak sets from `strict_q0.01`
+- overlap-based consensus peak sets from both `strict_q0.01` and `consensus_q0.05`
 
 ### 3. DiffBind unique peaks
 
@@ -78,15 +80,15 @@ Use case:
 
 ## What `motif enrichment` Runs On
 
-By default, motif enrichment runs on all BED files collected from the three sources above.
+By default, motif enrichment runs on all BED files collected from the enabled sources above.
 
 In your current WT/TG project, that usually means:
 - `WT_idr.sorted.chr.bed`
 - `TG_idr.sorted.chr.bed`
-- `WT_consensus.bed`
-- `TG_consensus.bed`
-- `condition_unique_up.TG.vs.WT.bed`
-- `condition_unique_down.TG.vs.WT.bed`
+- `strict_q0.01/WT_consensus.bed`
+- `strict_q0.01/TG_consensus.bed`
+- `consensus_q0.05/WT_consensus.bed`
+- `consensus_q0.05/TG_consensus.bed`
 
 Each one gets its own HOMER motif result directory.
 
@@ -160,7 +162,9 @@ Use this only if you want custom target/background combinations.
 
 ### Automatic peak-source control
 - `homer_peak_sources`
-  - default: `idr,consensus,diffbind`
+  - default: `idr,consensus_q0.01,consensus_q0.05`
+- `motif_compare_sources`
+  - default: `idr,consensus_q0.01,consensus_q0.05`
 - `idr_peak_pattern`
   - default: `*_idr.sorted.chr.bed`
 - `consensus_peak_pattern`
@@ -249,4 +253,5 @@ nextflow run main.nf -profile hpc \
 
 - `motif_compare_sheet.csv` is optional now; it is not required when automatic mode is used.
 - Auto `motif_compare` is currently fixed to `TG.vs.WT` naming for this project.
+- Output names now include source prefixes such as `consensus_q0.01__WT_consensus`, so the two consensus branches do not overwrite each other.
 - If DiffBind output naming changes, either update the module defaults or provide `--motif_compare_sheet` manually.

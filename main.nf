@@ -14,9 +14,10 @@ workflow {
             return Channel
                 .fromPath(params.peaks, checkIfExists: true)
                 .ifEmpty { exit 1, "ERROR: No peak files found for pattern: ${params.peaks}" }
+                .map { pf -> tuple("custom__${pf.baseName}", pf) }
         }
 
-        def peakSources = (params.homer_peak_sources ?: 'idr,consensus')
+        def peakSources = (params.homer_peak_sources ?: 'idr,consensus_q0.01,consensus_q0.05')
             .toString()
             .split(',')
             *.trim()
@@ -24,33 +25,53 @@ workflow {
             .unique()
 
         def peakFiles = []
+        def addPeak = { label, peakPath ->
+            if (!peakFiles.any { it.label == label }) {
+                peakFiles << [label: label, peak: file(peakPath.toString())]
+            }
+        }
 
         if (peakSources.contains('idr')) {
             def idrDir = file(params.idr_output)
             assert idrDir.exists() : "idr_output not found: ${params.idr_output}"
-            peakFiles.addAll(idrDir.listFiles()?.findAll { f ->
+            (idrDir.listFiles()?.findAll { f ->
                 f.isFile() && f.name ==~ globToRegex(params.idr_peak_pattern ?: "*_idr.sorted.chr.bed")
-            } ?: [])
+            } ?: []).each { f ->
+                addPeak("idr__${f.baseName}", f)
+            }
         }
 
-        if (peakSources.contains('consensus')) {
+        if (peakSources.any { it in ['consensus', 'consensus_q0.01', 'consensus_q0.05'] }) {
             def consensusDir = file(params.peak_consensus_output)
             assert consensusDir.exists() : "peak_consensus_output not found: ${params.peak_consensus_output}"
-            peakFiles.addAll(consensusDir.listFiles()?.findAll { f ->
-                f.isFile() && f.name ==~ globToRegex(params.consensus_peak_pattern ?: "*_consensus.bed")
-            } ?: [])
+            if (peakSources.any { it in ['consensus', 'consensus_q0.01'] }) {
+                (file("${params.peak_consensus_output}/strict_q0.01").listFiles()?.findAll { f ->
+                    f.isFile() && f.name ==~ globToRegex(params.consensus_peak_pattern ?: "*_consensus.bed")
+                } ?: []).each { f ->
+                    addPeak("consensus_q0.01__${f.baseName}", f)
+                }
+            }
+            if (peakSources.contains('consensus_q0.05')) {
+                (file("${params.peak_consensus_output}/consensus_q0.05").listFiles()?.findAll { f ->
+                    f.isFile() && f.name ==~ globToRegex(params.consensus_peak_pattern ?: "*_consensus.bed")
+                } ?: []).each { f ->
+                    addPeak("consensus_q0.05__${f.baseName}", f)
+                }
+            }
         }
 
         if (peakSources.contains('diffbind')) {
             def diffbindDir = file(params.diffbind_output)
             assert diffbindDir.exists() : "diffbind_output not found: ${params.diffbind_output}"
-            peakFiles.addAll(diffbindDir.listFiles()?.findAll { f ->
+            (diffbindDir.listFiles()?.findAll { f ->
                 f.isFile() && f.name ==~ globToRegex(params.diffbind_peak_pattern ?: "*.bed")
-            } ?: [])
+            } ?: []).each { f ->
+                addPeak("diffbind__${f.baseName}", f)
+            }
         }
 
         return Channel
-            .fromList(peakFiles.collect { file(it.toString()) })
+            .fromList(peakFiles.collect { tuple(it.label, it.peak) })
             .ifEmpty { exit 1, "ERROR: No peak files found for HOMER. Check configured source directories and patterns." }
     }
 
@@ -114,7 +135,7 @@ workflow {
         def c2 = conds[1]
         def wt = conds.find { it.equalsIgnoreCase('WT') } ?: c1
         def tg = conds.find { it.equalsIgnoreCase('TG') } ?: (wt == c1 ? c2 : c1)
-        def compareSources = (params.motif_compare_sources ?: 'idr,consensus')
+        def compareSources = (params.motif_compare_sources ?: 'idr,consensus_q0.01,consensus_q0.05')
             .toString()
             .split(',')
             *.trim()
@@ -133,14 +154,20 @@ workflow {
             pairs << tuple("idr_${tg}_vs_${wt}_bg", target, bg)
         }
 
-        if (compareSources.contains('consensus')) {
-            def consensusDir = file(params.peak_consensus_output)
-            assert consensusDir.exists() : "peak_consensus_output not found: ${params.peak_consensus_output}"
-            def target = file("${consensusDir}/${tg}_consensus.bed")
-            def bg = file("${consensusDir}/${wt}_consensus.bed")
-            assert target.exists() : "Auto motif_compare target not found (consensus): ${target}"
-            assert bg.exists() : "Auto motif_compare background not found (consensus): ${bg}"
-            pairs << tuple("consensus_${tg}_vs_${wt}_bg", target, bg)
+        if (compareSources.any { it in ['consensus', 'consensus_q0.01'] }) {
+            def target = file("${params.peak_consensus_output}/strict_q0.01/${tg}_consensus.bed")
+            def bg = file("${params.peak_consensus_output}/strict_q0.01/${wt}_consensus.bed")
+            assert target.exists() : "Auto motif_compare target not found (consensus_q0.01): ${target}"
+            assert bg.exists() : "Auto motif_compare background not found (consensus_q0.01): ${bg}"
+            pairs << tuple("consensus_q0.01_${tg}_vs_${wt}_bg", target, bg)
+        }
+
+        if (compareSources.contains('consensus_q0.05')) {
+            def target = file("${params.peak_consensus_output}/consensus_q0.05/${tg}_consensus.bed")
+            def bg = file("${params.peak_consensus_output}/consensus_q0.05/${wt}_consensus.bed")
+            assert target.exists() : "Auto motif_compare target not found (consensus_q0.05): ${target}"
+            assert bg.exists() : "Auto motif_compare background not found (consensus_q0.05): ${bg}"
+            pairs << tuple("consensus_q0.05_${tg}_vs_${wt}_bg", target, bg)
         }
 
         Channel
@@ -154,25 +181,24 @@ workflow {
     } else {
         build_motif_peaks()
             .ifEmpty { exit 1, "ERROR: No peak files found for HOMER motif enrichment." }
-            .map { pf ->
-                def basename      = pf.simpleName
-                def anno_out_file = file("${params.homer_output}/annotate/${basename}.annotated.txt")
-                def motif_out_dir = file("${params.homer_output}/motif/${basename}_motifs")
-                tuple(pf, anno_out_file, motif_out_dir)
+            .map { label, pf ->
+                def anno_out_file = file("${params.homer_output}/annotate/${label}.annotated.txt")
+                def motif_out_dir = file("${params.homer_output}/motif/${label}_motifs")
+                tuple(label, pf, anno_out_file, motif_out_dir)
             }
             .set { peak_meta }
 
         peak_for_annotate = peak_meta
-            .filter { pf, anno, motif ->
+            .filter { label, pf, anno, motif ->
                 !anno.exists()
             }
-            .map { pf, anno, motif -> pf }
+            .map { label, pf, anno, motif -> tuple(label, pf) }
 
         peak_for_motif = peak_meta
-            .filter { pf, anno, motif ->
+            .filter { label, pf, anno, motif ->
                 !motif.exists()
             }
-            .map { pf, anno, motif -> pf }
+            .map { label, pf, anno, motif -> tuple(label, pf) }
 
         if( params.mode == "annotate" ) {
             homer_annotate( peak_for_annotate )
